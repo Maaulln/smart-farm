@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Farm Monitoring</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 50px;
+      background: #f0f8f5;
+    }
+    h1 {
+      color: #228b22;
+    }
+    .sensor {
+      margin-top: 20px;
+      font-size: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌱 Smart Farm Monitoring</h1>
+  <div class="sensor">
+    <p><strong>Temperature:</strong> <span id="temp">--</span> °C</p>
+    <p><strong>Humidity:</strong> <span id="hum">--</span> %</p>
+    <p><strong>Soil Moisture:</strong> <span id="soil">--</span></p>
+  </div>
+
+  <script>
+    // Ganti dengan data dari HiveMQ Cloud kamu
+    const broker = "wss://d835bc5132a1488a88bfed2c34dcb24a.s1.eu.hivemq.cloud:8884/mqtt";
+    const options = {
+      username: "maaulln",
+      password: "Mobilelegend111",
+      clean: true,
+      connectTimeout: 4000,
+    };
+
+    const client = mqtt.connect(broker, options);
+
+    client.on("connect", () => {
+      console.log("Connected to MQTT Broker!");
+      client.subscribe("smartfarm/sensor", (err) => {
+        if (!err) console.log("Subscribed to topic smartfarm/sensor");
+      });
+    });
+
+    client.on("message", (topic, message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        document.getElementById("temp").textContent = data.temperature;
+        document.getElementById("hum").textContent = data.humidity;
+        document.getElementById("soil").textContent = data.soil;
+      } catch (e) {
+        console.error("Invalid message:", e);
+      }
+    });
+
+    client.on("error", (err) => console.error("Connection error:", err));
+  </script>
+</body>
+</html>
