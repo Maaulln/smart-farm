@@ -1,65 +1,432 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart Farm Monitoring</title>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 50px;
-      background: #f0f8f5;
-    }
-    h1 {
-      color: #228b22;
-    }
-    .sensor {
-      margin-top: 20px;
-      font-size: 1.2rem;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smart Farm Dashboard</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<style>
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+}
+
+body {
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+min-height: 100vh;
+padding: 20px;
+}
+
+.container {
+max-width: 1400px;
+margin: 0 auto;
+}
+
+header {
+text-align: center;
+color: white;
+margin-bottom: 30px;
+animation: fadeInDown 0.8s ease;
+}
+
+header h1 {
+font-size: 2.5rem;
+margin-bottom: 10px;
+text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.status-badge {
+display: inline-block;
+padding: 8px 20px;
+background: rgba(255,255,255,0.2);
+border-radius: 20px;
+font-size: 0.9rem;
+backdrop-filter: blur(10px);
+}
+
+.status-badge.connected {
+background: rgba(76, 175, 80, 0.3);
+}
+
+.status-badge.disconnected {
+background: rgba(244, 67, 54, 0.3);
+}
+
+.dashboard-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+gap: 25px;
+margin-bottom: 30px;
+}
+
+.card {
+background: rgba(255, 255, 255, 0.95);
+border-radius: 20px;
+padding: 25px;
+box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+backdrop-filter: blur(10px);
+transition: transform 0.3s ease, box-shadow 0.3s ease;
+animation: fadeInUp 0.8s ease;
+}
+
+.card:hover {
+transform: translateY(-5px);
+box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+}
+
+.card-header {
+display: flex;
+align-items: center;
+margin-bottom: 20px;
+}
+
+.icon {
+font-size: 2.5rem;
+margin-right: 15px;
+}
+
+.card-title {
+font-size: 1.1rem;
+color: #666;
+font-weight: 600;
+}
+
+.card-value {
+font-size: 3rem;
+font-weight: bold;
+color: #333;
+margin-bottom: 10px;
+}
+
+.card-unit {
+font-size: 1.2rem;
+color: #999;
+}
+
+.status-bar {
+height: 8px;
+background: #e0e0e0;
+border-radius: 10px;
+overflow: hidden;
+margin-top: 15px;
+}
+
+.status-fill {
+height: 100%;
+transition: width 0.5s ease, background 0.5s ease;
+border-radius: 10px;
+}
+
+.temp-card .status-fill {
+background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.hum-card .status-fill {
+background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.soil-card .status-fill {
+background: linear-gradient(90deg, #fa709a 0%, #fee140 100%);
+}
+
+.chart-container {
+grid-column: 1 / -1;
+background: rgba(255, 255, 255, 0.95);
+border-radius: 20px;
+padding: 30px;
+box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+animation: fadeInUp 1s ease;
+}
+
+.chart-container h2 {
+margin-bottom: 20px;
+color: #333;
+font-size: 1.5rem;
+}
+
+canvas {
+max-height: 300px;
+}
+
+.alert {
+background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+color: white;
+padding: 15px 20px;
+border-radius: 15px;
+margin-bottom: 20px;
+display: none;
+animation: shake 0.5s ease;
+box-shadow: 0 4px 15px rgba(255,107,107,0.3);
+}
+
+.alert.show {
+display: block;
+}
+
+.last-update {
+text-align: center;
+color: rgba(255,255,255,0.8);
+margin-top: 20px;
+font-size: 0.9rem;
+}
+
+@keyframes fadeInDown {
+from {
+opacity: 0;
+transform: translateY(-30px);
+}
+to {
+opacity: 1;
+transform: translateY(0);
+}
+}
+
+@keyframes fadeInUp {
+from {
+opacity: 0;
+transform: translateY(30px);
+}
+to {
+opacity: 1;
+transform: translateY(0);
+}
+}
+
+@keyframes shake {
+0%, 100% { transform: translateX(0); }
+25% { transform: translateX(-10px); }
+75% { transform: translateX(10px); }
+}
+
+@media (max-width: 768px) {
+header h1 {
+font-size: 1.8rem;
+}
+.card-value {
+font-size: 2.5rem;
+}
+.dashboard-grid {
+grid-template-columns: 1fr;
+}
+}
+</style>
 </head>
 <body>
-  <h1>🌱 Smart Farm Monitoring</h1>
-  <div class="sensor">
-    <p><strong>Temperature:</strong> <span id="temp">--</span> °C</p>
-    <p><strong>Humidity:</strong> <span id="hum">--</span> %</p>
-    <p><strong>Soil Moisture:</strong> <span id="soil">--</span></p>
-  </div>
+<div class="container">
+<header>
+<h1>🌾 Smart Farm Dashboard</h1>
+<div class="status-badge" id="statusBadge">⚪ Menghubungkan...</div>
+</header>
 
-  <script>
-    // Ganti dengan data dari HiveMQ Cloud kamu
-    const broker = "wss://d835bc5132a1488a88bfed2c34dcb24a.s1.eu.hivemq.cloud:8884/mqtt";
-    const options = {
-      username: "maaulln",
-      password: "Mobilelegend111",
-      clean: true,
-      connectTimeout: 4000,
-    };
+<div class="alert" id="alert"></div>
 
-    const client = mqtt.connect(broker, options);
+<div class="dashboard-grid">
+<div class="card temp-card">
+<div class="card-header">
+<div class="icon">🌡️</div>
+<div class="card-title">Suhu Udara</div>
+</div>
+<div>
+<span class="card-value" id="temp">--</span>
+<span class="card-unit">°C</span>
+</div>
+<div class="status-bar">
+<div class="status-fill" id="tempBar" style="width: 0%"></div>
+</div>
+</div>
 
-    client.on("connect", () => {
-      console.log("Connected to MQTT Broker!");
-      client.subscribe("smartfarm/sensor", (err) => {
-        if (!err) console.log("Subscribed to topic smartfarm/sensor");
-      });
-    });
+<div class="card hum-card">
+<div class="card-header">
+<div class="icon">💧</div>
+<div class="card-title">Kelembaban Udara</div>
+</div>
+<div>
+<span class="card-value" id="hum">--</span>
+<span class="card-unit">%</span>
+</div>
+<div class="status-bar">
+<div class="status-fill" id="humBar" style="width: 0%"></div>
+</div>
+</div>
 
-    client.on("message", (topic, message) => {
-      try {
-        const data = JSON.parse(message.toString());
-        document.getElementById("temp").textContent = data.temperature;
-        document.getElementById("hum").textContent = data.humidity;
-        document.getElementById("soil").textContent = data.soil;
-      } catch (e) {
-        console.error("Invalid message:", e);
-      }
-    });
+<div class="card soil-card">
+<div class="card-header">
+<div class="icon">🌱</div>
+<div class="card-title">Kelembaban Tanah</div>
+</div>
+<div>
+<span class="card-value" id="soil">--</span>
+<span class="card-unit"></span>
+</div>
+<div class="status-bar">
+<div class="status-fill" id="soilBar" style="width: 0%"></div>
+</div>
+</div>
+</div>
 
-    client.on("error", (err) => console.error("Connection error:", err));
-  </script>
+<div class="chart-container">
+<h2>📊 Grafik Real-Time Sensor</h2>
+<canvas id="sensorChart"></canvas>
+</div>
+
+<div class="last-update">
+Terakhir diperbarui: <span id="lastUpdate">--</span>
+</div>
+</div>
+
+<script>
+const broker = "wss://d835bc5132a1488a88bfed2c34dcb24a.s1.eu.hivemq.cloud:8884/mqtt";
+const options = {
+username: "maaulln",
+password: "Mobilelegend111",
+clean: true,
+connectTimeout: 4000,
+};
+
+const client = mqtt.connect(broker, options);
+const statusBadge = document.getElementById("statusBadge");
+const alertBox = document.getElementById("alert");
+
+// Chart setup
+const ctx = document.getElementById('sensorChart').getContext('2d');
+const maxDataPoints = 20;
+const chartData = {
+labels: [],
+datasets: [
+{
+label: 'Suhu (°C)',
+data: [],
+borderColor: '#4facfe',
+backgroundColor: 'rgba(79, 172, 254, 0.1)',
+tension: 0.4,
+fill: true
+},
+{
+label: 'Kelembaban (%)',
+data: [],
+borderColor: '#43e97b',
+backgroundColor: 'rgba(67, 233, 123, 0.1)',
+tension: 0.4,
+fill: true
+},
+{
+label: 'Kelembaban Tanah',
+data: [],
+borderColor: '#fa709a',
+backgroundColor: 'rgba(250, 112, 154, 0.1)',
+tension: 0.4,
+fill: true
+}
+]
+};
+
+const chart = new Chart(ctx, {
+type: 'line',
+data: chartData,
+options: {
+responsive: true,
+maintainAspectRatio: true,
+plugins: {
+legend: {
+display: true,
+position: 'top',
+}
+},
+scales: {
+y: {
+beginAtZero: true,
+max: 100
+}
+},
+animation: {
+duration: 750
+}
+}
+});
+
+function updateChart(temp, hum, soil) {
+const time = new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'});
+
+chartData.labels.push(time);
+chartData.datasets[0].data.push(temp);
+chartData.datasets[1].data.push(hum);
+chartData.datasets[2].data.push(parseFloat(soil) || 0);
+
+if (chartData.labels.length > maxDataPoints) {
+chartData.labels.shift();
+chartData.datasets.forEach(dataset => dataset.data.shift());
+}
+
+chart.update();
+}
+
+function showAlert(message) {
+alertBox.textContent = message;
+alertBox.classList.add('show');
+setTimeout(() => alertBox.classList.remove('show'), 5000);
+}
+
+function checkThresholds(temp, hum, soil) {
+if (temp > 35) {
+showAlert('⚠️ Peringatan: Suhu terlalu tinggi! Pertimbangkan untuk mendinginkan area.');
+} else if (temp < 15) {
+showAlert('⚠️ Peringatan: Suhu terlalu rendah! Tanaman mungkin memerlukan kehangatan.');
+}
+if (hum < 40) {
+showAlert('⚠️ Peringatan: Kelembaban udara rendah! Pertimbangkan penyiraman atau humidifier.');
+}
+if (soil < 30) {
+showAlert('⚠️ Peringatan: Tanah kering! Segera lakukan penyiraman.');
+}
+}
+
+client.on("connect", () => {
+console.log("Connected to MQTT Broker!");
+statusBadge.textContent = "🟢 Terhubung";
+statusBadge.classList.add("connected");
+client.subscribe("smartfarm/sensor", (err) => {
+if (!err) console.log("Subscribed to topic smartfarm/sensor");
+});
+});
+
+client.on("message", (topic, message) => {
+try {
+const data = JSON.parse(message.toString());
+const temp = parseFloat(data.temperature) || 0;
+const hum = parseFloat(data.humidity) || 0;
+const soil = parseFloat(data.soil) || 0;
+
+document.getElementById("temp").textContent = temp.toFixed(1);
+document.getElementById("hum").textContent = hum.toFixed(1);
+document.getElementById("soil").textContent = soil.toFixed(0);
+
+document.getElementById("tempBar").style.width = Math.min((temp / 50) * 100, 100) + "%";
+document.getElementById("humBar").style.width = hum + "%";
+document.getElementById("soilBar").style.width = Math.min((soil / 100) * 100, 100) + "%";
+
+updateChart(temp, hum, soil);
+checkThresholds(temp, hum, soil);
+
+document.getElementById("lastUpdate").textContent = new Date().toLocaleString('id-ID');
+} catch (e) {
+console.error("Invalid message:", e);
+}
+});
+
+client.on("error", (err) => {
+console.error("Connection error:", err);
+statusBadge.textContent = "🔴 Terputus";
+statusBadge.classList.remove("connected");
+statusBadge.classList.add("disconnected");
+});
+
+client.on("offline", () => {
+statusBadge.textContent = "🟡 Offline";
+statusBadge.classList.remove("connected");
+});
+</script>
 </body>
 </html>
